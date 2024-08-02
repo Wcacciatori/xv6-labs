@@ -5,9 +5,9 @@
 
 
 /**
- * @description: 
- * @param {char} *path
- * @return {*}
+ * @description: 找到路径倒数第一个文件名
+ * @param *path：路径
+ * @return 路径倒数第一个文件名   
  */
 char* fmtname(char *path)
 {
@@ -66,6 +66,7 @@ void ls(char *path)
     strcpy(buf, path);//备份到buf，省的对path改动造成不必要的麻烦
     p = buf+strlen(buf);//p指向路径的最后一个位置
     *p++ = '/';//最后一个位置后面加个“/”，方便后面找buf里的最新文件名（见函数fmtname）
+    
     while(read(fd, &de, sizeof(de)) == sizeof(de)){//开始从文件描述符读目录项到de中
       if(de.inum == 0)//如果目录项被删除或者未被使用过，则跳过
         continue;
