@@ -1,7 +1,7 @@
 /*
  * @Author: wjy：2786484775@qq.com
  * @Date: 2024-08-02 19:45:46
- * @LastEditTime: 2024-08-04 19:30:34
+ * @LastEditTime: 2024-08-04 19:47:08
  * @FilePath: /xv6-labs-2020/user/xargs.c
  * @Description: 
  * 
@@ -12,6 +12,8 @@
 #include "user/user.h"
 #include "kernel/param.h"
 
+#define buf_size 512
+
 //思路(显然不对，未能理解“|”的作用)：先检测管道前的命令，在新进程中得到输出，通过管道传给父进程，
 //再存到变量里作为管道后命令的参数,管道前后的命令都需要在新进程中执行
 
@@ -20,38 +22,38 @@
 
 
 int readline(char* buf) {
-    char ch, line[MAXARG] = {0};
+    char ch;
     int bytesRead = 0;
     while (read(0, &ch, 1)) { // Read a char from stdout
         if (ch != '\n') {
-            line[bytesRead++] = ch;
+            buf[bytesRead++] = ch; 
             if (bytesRead + 1 >= MAXARG) {
                 printf("xargs: line too long\n");
                 return -1;
             }
         } else { // End of line
             if (bytesRead > 0) {
-                line[bytesRead] = '\0'; 
-                buf = line;
-                return 1;
+                buf[bytesRead] = '\0'; // Null terminate the string
+                return bytesRead;
             }
         }
     }
-    return -1;
+    return bytesRead;
 }
 
 int main(int argc, char *argv[]) {
+  char buf[buf_size + 1] = {0};
+  char *xargv[MAXARG] = {0};
+//   int stdin_end = 0;
 
-    int buf_size = 99;
-    char buf[buf_size + 1];
-    char *xargv[MAXARG] = {0};
-
-  for (int i = 1; i < argc; i++) // 去掉xargs
+  for (int i = 1; i < argc; i++) {
     xargv[i - 1] = argv[i];
+  }
+
   while (1) {
     int read_bytes = readline(buf);
     if (read_bytes <= 0) break;
-    char xbuf[buf_size + 1];
+    char xbuf[buf_size + 1] = {0};
     memcpy(xbuf, buf, strlen(buf));
     xargv[argc - 1] = xbuf;
     if (fork() == 0) { // in child
@@ -64,7 +66,7 @@ int main(int argc, char *argv[]) {
       wait(&pid);
     }
   }
-    exit(0);
+  exit(0);
 }
 
 // void main(int argc, char *argv[])

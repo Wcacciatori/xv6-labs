@@ -133,6 +133,7 @@ runcmd(struct cmd *cmd)
 int
 getcmd(char *buf, int nbuf)
 {
+  //fprintf(2, "$ ");
   write(2, "$ ", 2); // 加入判断逻辑
   memset(buf, 0, nbuf);
   gets(buf, nbuf);
