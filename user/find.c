@@ -2,7 +2,7 @@
  * @Author: wjy：2786484775@qq.com
  * @Date: 2024-07-30 08:47:30
  * @LastEditors: git config Wcacciatori && git config 2786484775@qq.com
- * @LastEditTime: 2024-08-01 22:38:49
+ * @LastEditTime: 2024-08-04 18:47:03
  * @FilePath: /xv6-labs-2020/user/find.c
  * @Description: 
  * 
@@ -47,8 +47,8 @@ int main(int argc, char *argv[])
 {
     /* code */
     char* to_find_flie;
-    to_find_flie=argv[1];
-    finds(".", to_find_flie, "");
+    to_find_flie=argv[2];
+    finds(argv[1], to_find_flie, "");
     exit(0);
 }
 /**
@@ -87,7 +87,7 @@ void finds(char *path, char* to_find_flie, char *filename){
         //printf("file分支%s\n", fmtname(path));
 
         if (strcmp(filename, to_find_flie) == 0) {
-            printf("filepath:%s\n", path);
+            printf("%s\n", path);
         }
         break;
     //如果是个目录，则继续调用find...............问题所在！忘了排除目录“.”了！！
