@@ -1,3 +1,13 @@
+/*
+ * @Author: wjy：2786484775@qq.com
+ * @Date: 2024-09-04 15:20:48
+ * @LastEditors: git config Wcacciatori && git config 2786484775@qq.com
+ * @LastEditTime: 2024-09-05 19:16:28
+ * @FilePath: /xv6-lab2-2020/kernel/syscall.h
+ * @Description: 
+ * 
+ * Copyright (c) 2024 by ${2786484775@qq.com}, All Rights Reserved. 
+ */
 // System call numbers
 #define SYS_fork    1
 #define SYS_exit    2
@@ -20,3 +30,4 @@
 #define SYS_link   19
 #define SYS_mkdir  20
 #define SYS_close  21
+#define SYS_trace  22

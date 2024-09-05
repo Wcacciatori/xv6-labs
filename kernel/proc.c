@@ -5,14 +5,15 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
-
+//cpu数组，表示多核下的多个cpu
 struct cpu cpus[NCPU];
-
+//进程数组，定义了进程表每个元素是个pcb
 struct proc proc[NPROC];
-
+//初始进程
 struct proc *initproc;
 
 int nextpid = 1;
+//是一个自旋锁，用来保护进程的并发访问（？？）
 struct spinlock pid_lock;
 
 extern void forkret(void);
@@ -28,12 +29,15 @@ procinit(void)
   struct proc *p;
   
   initlock(&pid_lock, "nextpid");
+  //给每个进程分配资源
   for(p = proc; p < &proc[NPROC]; p++) {
       initlock(&p->lock, "proc");
 
       // Allocate a page for the process's kernel stack.
       // Map it high in memory, followed by an invalid
       // guard page.
+      //分配一个页面作为内核栈空间
+      //并映射到虚拟地址
       char *pa = kalloc();
       if(pa == 0)
         panic("kalloc");
@@ -41,12 +45,14 @@ procinit(void)
       kvmmap(va, (uint64)pa, PGSIZE, PTE_R | PTE_W);
       p->kstack = va;
   }
+  //初始化每个cpu的内核页表
   kvminithart();
 }
 
 // Must be called with interrupts disabled,
 // to prevent race with process being moved
 // to a different CPU.
+//返回当前CPUid
 int
 cpuid()
 {
@@ -56,6 +62,7 @@ cpuid()
 
 // Return this CPU's cpu struct.
 // Interrupts must be disabled.
+//返回当前CPU的结构体指针。
 struct cpu*
 mycpu(void) {
   int id = cpuid();
@@ -64,6 +71,7 @@ mycpu(void) {
 }
 
 // Return the current struct proc *, or zero if none.
+//返回当前进程pcb指针
 struct proc*
 myproc(void) {
   push_off();
@@ -73,6 +81,7 @@ myproc(void) {
   return p;
 }
 
+//分配新的进程ID
 int
 allocpid() {
   int pid;
@@ -89,6 +98,7 @@ allocpid() {
 // If found, initialize state required to run in the kernel,
 // and return with p->lock held.
 // If there are no free procs, or a memory allocation fails, return 0.
+//寻找空闲进程并初始化 分配资源
 static struct proc*
 allocproc(void)
 {
@@ -133,6 +143,7 @@ found:
 // free a proc structure and the data hanging from it,
 // including user pages.
 // p->lock must be held.
+//释放进程使用的资源
 static void
 freeproc(struct proc *p)
 {
@@ -154,6 +165,7 @@ freeproc(struct proc *p)
 
 // Create a user page table for a given process,
 // with no user memory, but with trampoline pages.
+//为一个进程创建用户页表，设置陷阱帧和跳板页（trampoline）的映射
 pagetable_t
 proc_pagetable(struct proc *p)
 {
@@ -187,6 +199,7 @@ proc_pagetable(struct proc *p)
 
 // Free a process's page table, and free the
 // physical memory it refers to.
+//释放进程的页表以及其指向的物理内存
 void
 proc_freepagetable(pagetable_t pagetable, uint64 sz)
 {
@@ -208,6 +221,7 @@ uchar initcode[] = {
 };
 
 // Set up first user process.
+//初始化第一个进程
 void
 userinit(void)
 {
@@ -235,6 +249,7 @@ userinit(void)
 
 // Grow or shrink user memory by n bytes.
 // Return 0 on success, -1 on failure.
+//调整进程的内存大小
 int
 growproc(int n)
 {
@@ -255,6 +270,7 @@ growproc(int n)
 
 // Create a new process, copying the parent.
 // Sets up child kernel stack to return as if from fork() system call.
+//无需多言
 int
 fork(void)
 {
@@ -302,6 +318,8 @@ fork(void)
 
 // Pass p's abandoned children to init.
 // Caller must hold p->lock.
+//将被孤立（失去父进程）的子进程重新分配给系统的初始化进程（initproc）
+//该函数通常在父进程退出时调用，以确保孤立的子进程不被系统遗弃，并且能够被妥善管理。
 void
 reparent(struct proc *p)
 {
@@ -329,6 +347,7 @@ reparent(struct proc *p)
 // Exit the current process.  Does not return.
 // An exited process remains in the zombie state
 // until its parent calls wait().
+//无需多言
 void
 exit(int status)
 {
@@ -394,6 +413,7 @@ exit(int status)
 
 // Wait for a child process to exit and return its pid.
 // Return -1 if this process has no children.
+//无需多言
 int
 wait(uint64 addr)
 {
@@ -453,6 +473,8 @@ wait(uint64 addr)
 //  - swtch to start running that process.
 //  - eventually that process transfers control
 //    via swtch back to the scheduler.
+//管理每个 CPU 上的进程调度。这个函数不断循环运行，选择一个可运行的进程，
+//将 CPU 的控制权切换到该进程，并在进程完成其时间片或需要重新调度时，返回到调度器
 void
 scheduler(void)
 {
@@ -497,6 +519,8 @@ scheduler(void)
 // be proc->intena and proc->noff, but that would
 // break in the few places where a lock is held but
 // there's no process.
+//负责将 CPU 的控制权从当前正在运行的进程切换回到调度器，以便操作系统可以选择下一个进程运行。
+//这个函数在当前进程需要放弃 CPU 时（例如主动让出 CPU 或等待某个事件发生）被调用
 void
 sched(void)
 {
@@ -518,6 +542,7 @@ sched(void)
 }
 
 // Give up the CPU for one scheduling round.
+//当前进程主动放弃cpu
 void
 yield(void)
 {
@@ -530,6 +555,7 @@ yield(void)
 
 // A fork child's very first scheduling by scheduler()
 // will swtch to forkret.
+//新创建的子进程首次被调度时会调用此函数，完成一些初始化工作
 void
 forkret(void)
 {
@@ -551,6 +577,7 @@ forkret(void)
 
 // Atomically release lock and sleep on chan.
 // Reacquires lock when awakened.
+//休眠到特定事件chan
 void
 sleep(void *chan, struct spinlock *lk)
 {
@@ -585,6 +612,7 @@ sleep(void *chan, struct spinlock *lk)
 
 // Wake up all processes sleeping on chan.
 // Must be called without any p->lock.
+//唤醒所有在 chan 上睡眠的进程，使其进入 RUNNABLE 状态
 void
 wakeup(void *chan)
 {
@@ -601,6 +629,7 @@ wakeup(void *chan)
 
 // Wake up p if it is sleeping in wait(); used by exit().
 // Caller must hold p->lock.
+//唤醒特定的进程（仅限一个）
 static void
 wakeup1(struct proc *p)
 {
@@ -614,6 +643,7 @@ wakeup1(struct proc *p)
 // Kill the process with the given pid.
 // The victim won't exit until it tries to return
 // to user space (see usertrap() in trap.c).
+//通过设置 killed 标志来终止指定的进程 pid
 int
 kill(int pid)
 {
@@ -638,6 +668,7 @@ kill(int pid)
 // Copy to either a user address, or kernel address,
 // depending on usr_dst.
 // Returns 0 on success, -1 on error.
+//根据 user_dst 标志，决定将数据从内核或用户地址空间复制到目标地址。
 int
 either_copyout(int user_dst, uint64 dst, void *src, uint64 len)
 {
@@ -653,6 +684,7 @@ either_copyout(int user_dst, uint64 dst, void *src, uint64 len)
 // Copy from either a user address, or kernel address,
 // depending on usr_src.
 // Returns 0 on success, -1 on error.
+//根据 user_src 标志，决定将数据从用户或内核地址空间复制到目标地址。
 int
 either_copyin(void *dst, int user_src, uint64 src, uint64 len)
 {
@@ -668,6 +700,7 @@ either_copyin(void *dst, int user_src, uint64 src, uint64 len)
 // Print a process listing to console.  For debugging.
 // Runs when user types ^P on console.
 // No lock to avoid wedging a stuck machine further.
+//打印当前系统中所有进程的信息，包括进程ID、状态和名称，用于调试目的。
 void
 procdump(void)
 {
