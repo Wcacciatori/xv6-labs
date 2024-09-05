@@ -1,3 +1,13 @@
+/*
+ * @Author: wjy：2786484775@qq.com
+ * @Date: 2024-09-04 15:20:48
+ * @LastEditors: git config Wcacciatori && git config 2786484775@qq.com
+ * @LastEditTime: 2024-09-05 18:52:52
+ * @FilePath: /xv6-lab2-2020/user/user.h
+ * @Description: 
+ * 
+ * Copyright (c) 2024 by ${2786484775@qq.com}, All Rights Reserved. 
+ */
 struct stat;
 struct rtcdate;
 
@@ -23,6 +33,7 @@ int getpid(void);
 char* sbrk(int);
 int sleep(int);
 int uptime(void);
+int trace(int);
 
 // ulib.c
 int stat(const char*, struct stat*);
