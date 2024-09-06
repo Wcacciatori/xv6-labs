@@ -8,6 +8,7 @@
 #include "defs.h"
 
 // Fetch the uint64 at addr from the current process.
+//获取一个64位的数
 int
 fetchaddr(uint64 addr, uint64 *ip)
 {
@@ -21,6 +22,7 @@ fetchaddr(uint64 addr, uint64 *ip)
 
 // Fetch the nul-terminated string at addr from the current process.
 // Returns length of string, not including nul, or -1 for error.
+//获取一个字符串
 int
 fetchstr(uint64 addr, char *buf, int max)
 {
@@ -31,6 +33,7 @@ fetchstr(uint64 addr, char *buf, int max)
   return strlen(buf);
 }
 
+//直接从当前进程的陷入帧中获取第 n 个系统调用参数
 static uint64
 argraw(int n)
 {
@@ -54,6 +57,7 @@ argraw(int n)
 }
 
 // Fetch the nth 32-bit system call argument.
+//获取第 n 个 32 位的系统调用参数。
 int
 argint(int n, int *ip)
 {
@@ -64,6 +68,7 @@ argint(int n, int *ip)
 // Retrieve an argument as a pointer.
 // Doesn't check for legality, since
 // copyin/copyout will do that.
+//获取第 n 个系统调用参数作为指针（地址）
 int
 argaddr(int n, uint64 *ip)
 {
@@ -74,6 +79,7 @@ argaddr(int n, uint64 *ip)
 // Fetch the nth word-sized system call argument as a null-terminated string.
 // Copies into buf, at most max.
 // Returns string length if OK (including nul), -1 if error.
+//获取第 n 个参数作为字符串（nul 终止），并复制到缓冲区 buf 中。
 int
 argstr(int n, char *buf, int max)
 {
@@ -104,6 +110,34 @@ extern uint64 sys_unlink(void);
 extern uint64 sys_wait(void);
 extern uint64 sys_write(void);
 extern uint64 sys_uptime(void);
+extern uint64 sys_trace(void);
+
+//带索引的初始化器（designated initializers），
+//这是 C 语言中一种特定的数组初始化方式，允许为数组的特定索引位置赋值。
+static char *syscalls_name[] = {
+[SYS_fork]    "fork",
+[SYS_exit]    "exit",
+[SYS_wait]    "wait",
+[SYS_pipe]    "pipe",
+[SYS_read]    "read",
+[SYS_kill]    "kill",
+[SYS_exec]    "exec",
+[SYS_fstat]   "fstat",
+[SYS_chdir]   "chdir",
+[SYS_dup]     "dup",
+[SYS_getpid]  "getpid",
+[SYS_sbrk]    "sbrk",
+[SYS_sleep]   "sleep",
+[SYS_uptime]  "uptime",
+[SYS_open]    "open",
+[SYS_write]   "write",
+[SYS_mknod]   "mknod",
+[SYS_unlink]  "unlink",
+[SYS_link]    "link",
+[SYS_mkdir]   "mkdir",
+[SYS_close]   "close",
+[SYS_trace]   "trace",
+};
 
 static uint64 (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
@@ -127,6 +161,7 @@ static uint64 (*syscalls[])(void) = {
 [SYS_link]    sys_link,
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
+[SYS_trace]   sys_trace,
 };
 
 void
@@ -138,6 +173,8 @@ syscall(void)
   num = p->trapframe->a7;
   if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {
     p->trapframe->a0 = syscalls[num]();
+    if ((1 << num) & p->mask)//加上这个判断，只把特定的系统调用打印出来，更灵活
+    printf("%d: syscall %s -> %d\n", p->pid, syscalls_name[num], p->trapframe->a0);
   } else {
     printf("%d %s: unknown sys call %d\n",
             p->pid, p->name, num);
