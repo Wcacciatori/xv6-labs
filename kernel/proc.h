@@ -105,3 +105,5 @@ struct proc {
   char name[16];               // Process name (debugging)
   int mask;                    // 系统调用号掩码
 };
+
+uint64 GetFreeProc(void);

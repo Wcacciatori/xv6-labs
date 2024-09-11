@@ -1,6 +1,16 @@
-// Physical memory allocator, for user processes,
-// kernel stacks, page-table pages,
-// and pipe buffers. Allocates whole 4096-byte pages.
+/*
+ * @Author: wjy：2786484775@qq.com
+ * @Date: 2024-09-04 15:20:48
+ * @LastEditors: git config Wcacciatori && git config 2786484775@qq.com
+ * @LastEditTime: 2024-09-11 19:40:14
+ * @FilePath: /xv6-lab2-2020/kernel/kalloc.c
+ * @Description: Physical memory allocator, for user processes,
+ *               kernel stacks, page-table pages,
+ *               and pipe buffers. Allocates whole 4096-byte pages.
+ * 
+ * Copyright (c) 2024 by ${2786484775@qq.com}, All Rights Reserved. 
+ */
+
 
 #include "types.h"
 #include "param.h"
@@ -79,4 +89,21 @@ kalloc(void)
   if(r)
     memset((char*)r, 5, PGSIZE); // fill with junk
   return (void*)r;
+}
+
+//获取空闲字节数
+uint64
+GetFreeMem(void){
+
+  struct run *r;
+  uint64 num=0;
+  acquire(&kmem.lock);
+  r = kmem.freelist;
+  while (r)
+  {
+    num++;
+    r=r->next;
+  }
+  release(&kmem.lock);
+  return 4096*num;
 }

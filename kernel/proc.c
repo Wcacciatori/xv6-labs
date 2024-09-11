@@ -727,3 +727,17 @@ procdump(void)
     printf("\n");
   }
 }
+
+uint64
+GetFreeProc(void){
+  struct proc *p;
+  uint64 num=0;
+  acquire(&tickslock);
+  for(p = proc; p < &proc[NPROC]; p++){
+    if(p->state != UNUSED){
+        num++;
+    }
+  }
+  release(&tickslock);
+  return num;
+}
