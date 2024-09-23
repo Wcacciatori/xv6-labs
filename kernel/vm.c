@@ -16,6 +16,7 @@ extern char etext[];  // kernel.ld sets this to end of kernel code.
 
 extern char trampoline[]; // trampoline.S
 
+void _vmprint(pagetable_t pagetable,int level);
 /*
  * create a direct-map page table for the kernel.
  * 创建内核的直接映射页表
@@ -462,13 +463,32 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
   if(got_null){
     return 0;
   } else {
-    return -1;
+    return -1;  
   }
 }
 
 int
 vmprint(pagetable_t pagetable){
-
-
+  printf("page table %p\n",pagetable);
+  _vmprint(pagetable,1);
   return 0;
+}
+
+void _vmprint(pagetable_t pagetable,int level){
+  int j=0;
+  for(j=0;j<512;j++){
+    pte_t pte = pagetable[j];
+    uint64 pa =  PTE2PA(pte);
+    if(pte & PTE_V){
+        for (int i = 0; i < level; i++){
+          if (i) printf(" ");
+          printf("..");
+        }
+        printf("%d: pte %p pa %p\n",j,pte,pa);
+    }
+    if((pte & PTE_V) && (pte & (PTE_R|PTE_W|PTE_X)) == 0){
+      uint64 child = PTE2PA(pte);
+      _vmprint((pagetable_t)child,level+1);
+    }
+  }
 }
