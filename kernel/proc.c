@@ -6,6 +6,7 @@
 #include "proc.h"
 #include "defs.h"
 
+
 struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
@@ -14,6 +15,8 @@ struct proc *initproc;
 
 int nextpid = 1;
 struct spinlock pid_lock;
+
+extern char etext[];  // kernel.ld sets this to end of kernel code.
 
 extern void forkret(void);
 static void wakeup1(struct proc *chan);
@@ -34,12 +37,13 @@ procinit(void)
       // Allocate a page for the process's kernel stack.
       // Map it high in memory, followed by an invalid
       // guard page.
-      char *pa = kalloc();
-      if(pa == 0)
-        panic("kalloc");
-      uint64 va = KSTACK((int) (p - proc));
-      kvmmap(va, (uint64)pa, PGSIZE, PTE_R | PTE_W);
-      p->kstack = va;
+      //迁移工作todo：把新建立的内核页面（虚拟）映射到对应的物理页面，然后把虚拟页面挂载到pcb上
+      // char *pa = kalloc();
+      // if(pa == 0)
+      //   panic("kalloc");
+      // uint64 va = KSTACK((int) (p - proc));
+      // kvmmap(va, (uint64)pa, PGSIZE, PTE_R | PTE_W);
+      // p->kstack = va;
   }
   kvminithart();
 }
@@ -121,6 +125,22 @@ found:
     return 0;
   }
 
+  //为新进程创建内核页面（表？）并初始化
+  p->K_pagetable = ukvminit();
+    if(p->K_pagetable == 0){
+    freeproc(p);
+    release(&p->lock);
+    return 0;
+  }
+
+  //在页表添加页表项：进程内核栈的映射。（原来的所有进程内核栈映射全记录在全局内核页表上了，现在各自记录各的）
+  char *pa = kalloc();//申请一页物理地址
+  if(pa == 0)
+    panic("kalloc");
+  uint64 va = KSTACK((int) (p - proc));//找到进程的内核态栈的地址
+  uvmmap(p->K_pagetable,va, (uint64)pa, PGSIZE, PTE_R | PTE_W);//创建va->pa的PTE，并挂载到进程内核页表上
+  p->kstack = va;
+
   // Set up new context to start executing at forkret,
   // which returns to user space.
   memset(&p->context, 0, sizeof(p->context));
@@ -150,8 +170,12 @@ freeproc(struct proc *p)
   p->killed = 0;
   p->xstate = 0;
   p->state = UNUSED;
-}
+  uvmunmap(p->K_pagetable, p->kstack, 1, 1);
+  p->kstack = 0;
+  proc_freeKpagetable(p->K_pagetable);
 
+}
+  
 // Create a user page table for a given process,
 // with no user memory, but with trampoline pages.
 pagetable_t
@@ -193,6 +217,23 @@ proc_freepagetable(pagetable_t pagetable, uint64 sz)
   uvmunmap(pagetable, TRAMPOLINE, 1, 0);
   uvmunmap(pagetable, TRAPFRAME, 1, 0);
   uvmfree(pagetable, sz);
+}
+
+//释放内核页面
+void
+proc_freeKpagetable(pagetable_t pagetable)
+{
+
+  for(int i = 0; i < 512; i++){
+    pte_t pte = pagetable[i];
+    if((pte & PTE_V) && (pte & (PTE_R|PTE_W|PTE_X)) == 0){
+      // this PTE points to a lower-level page table.
+      uint64 child = PTE2PA(pte);
+      proc_freeKpagetable((pagetable_t)child);//递归释放
+      pagetable[i] = 0;//清除当前页的指针
+    } 
+  }
+  kfree(pagetable);
 }
 
 // a user program that calls exec("/init")
@@ -473,12 +514,16 @@ scheduler(void)
         // before jumping back to us.
         p->state = RUNNING;
         c->proc = p;
+        //加载内核页面到satp
+        w_satp(MAKE_SATP(p->K_pagetable));
+        sfence_vma();
+        
         swtch(&c->context, &p->context);
 
         // Process is done running for now.
         // It should have changed its p->state before coming back.
         c->proc = 0;
-
+        kvminithart();
         found = 1;
       }
       release(&p->lock);

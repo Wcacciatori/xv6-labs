@@ -5,6 +5,9 @@
 #include "riscv.h"
 #include "defs.h"
 #include "fs.h"
+#include "spinlock.h"
+#include "proc.h"
+
 
 /*
  * the kernel's page table.
@@ -15,6 +18,7 @@ pagetable_t kernel_pagetable;
 extern char etext[];  // kernel.ld sets this to end of kernel code.
 
 extern char trampoline[]; // trampoline.S
+
 
 void _vmprint(pagetable_t pagetable,int level);
 /*
@@ -55,6 +59,21 @@ kvminit()
   //将跳板映射到内核中的最高虚拟地址，以便进行陷阱进入/退出
   kvmmap(TRAMPOLINE, (uint64)trampoline, PGSIZE, PTE_R | PTE_X);
 }
+
+pagetable_t
+ukvminit(){
+  pagetable_t UKpagetable = (pagetable_t)kalloc();
+  memset(UKpagetable, 0, PGSIZE);
+  uvmmap(UKpagetable,UART0, UART0, PGSIZE, PTE_R | PTE_W);
+  uvmmap(UKpagetable,VIRTIO0, VIRTIO0, PGSIZE, PTE_R | PTE_W);
+  uvmmap(UKpagetable,CLINT, CLINT, 0x10000, PTE_R | PTE_W);
+  uvmmap(UKpagetable,PLIC, PLIC, 0x400000, PTE_R | PTE_W);
+  uvmmap(UKpagetable,KERNBASE, KERNBASE, (uint64)etext-KERNBASE, PTE_R | PTE_X);
+  uvmmap(UKpagetable,(uint64)etext, (uint64)etext, PHYSTOP-(uint64)etext, PTE_R | PTE_W);
+  uvmmap(UKpagetable,TRAMPOLINE, (uint64)trampoline, PGSIZE, PTE_R | PTE_X);
+  return UKpagetable;
+}
+
 
 // Switch h/w page table register to the kernel's page table,
 // and enable paging.
@@ -133,6 +152,14 @@ kvmmap(uint64 va, uint64 pa, uint64 sz, int perm)
     panic("kvmmap");
 }
 
+void
+uvmmap(pagetable_t pagetable,uint64 va, uint64 pa, uint64 sz, int perm)
+{
+  if(mappages(pagetable, va, sz, pa, perm) != 0)
+    panic("kvmmap");
+}
+
+
 // translate a kernel virtual address to
 // a physical address. only needed for
 // addresses on the stack.
@@ -145,7 +172,7 @@ kvmpa(uint64 va)
   pte_t *pte;
   uint64 pa;
   
-  pte = walk(kernel_pagetable, va, 0);//查找页表项
+  pte = walk((myproc()->K_pagetable), va, 0);//查找页表项
   if(pte == 0)
     panic("kvmpa");
   if((*pte & PTE_V) == 0)

@@ -92,6 +92,7 @@ int             fork(void);
 int             growproc(int);
 pagetable_t     proc_pagetable(struct proc *);
 void            proc_freepagetable(pagetable_t, uint64);
+void            proc_freeKpagetable(pagetable_t pagetable);
 int             kill(int);
 struct cpu*     mycpu(void);
 struct cpu*     getmycpu(void);
@@ -159,8 +160,10 @@ int             uartgetc(void);
 
 // vm.c
 void            kvminit(void);
+pagetable_t     ukvminit(void);//wjy add
 void            kvminithart(void);
 uint64          kvmpa(uint64);
+void            uvmmap(pagetable_t pagetable,uint64 va, uint64 pa, uint64 sz, int perm);
 void            kvmmap(uint64, uint64, uint64, int);
 int             mappages(pagetable_t, uint64, uint64, uint64, int);
 pagetable_t     uvmcreate(void);
